@@ -30,3 +30,12 @@
 *.exe
 *.out
 *.app
+
+# battlecode 2019 replay files
+*.bc19
+
+# WebStorm & Clion project files
+.idea/
+
+# generated emscripten files
+*/*_GENERATED.js
