@@ -650,14 +650,25 @@ class AbstractNativeRobot {
   template<typename T>
   class Map {
    private:
-    emscripten::val internal_value_;
+    std::vector<T> data_;
+    int rows_;
+    int cols_;
+
+    constexpr auto index(const int row, const int col) const {
+      return row * cols_ + col;
+    }
 
    public:
-    // TODO: several of these maps don't change over time, but are likely to have frequent reads. Cache them on the first
-    // turn to avoid stupid variable lookups. Profile to test the effect.
-    // Even for the getVisibleRobotMap() (which changes every turn), we only need to update the visible tiles (at most
-    // 357 for largest vision range), so it might be faster to store it locally.
-    explicit Map(emscripten::val value) : internal_value_(value) {
+    // Copies a 2d array from val
+    explicit Map(const emscripten::val &value) {
+      rows_ = value["length"].as<int>();
+      cols_ = value[0]["length"].as<int>();
+      data_.resize(static_cast<typename std::vector<T>::size_type >(rows_ * cols_));
+      for (int row = 0; row < rows_; ++row) {
+        for (int col = 0; col < cols_; ++col) {
+          data_[index(row, col)] = value[row][col].template as<T>();
+        }
+      }
     }
 
     /**
@@ -669,7 +680,7 @@ class AbstractNativeRobot {
      * @return the value
      */
     T get(int row, int col) const {
-      return internal_value_[row][col].template as<T>();
+      return data_[index(row, col)];
     }
 
     /**
@@ -677,7 +688,7 @@ class AbstractNativeRobot {
      * @return number of rows
      */
     int rows() const {
-      return internal_value_["length"].template as<int>();
+      return rows_;
     }
 
     /**
@@ -685,7 +696,7 @@ class AbstractNativeRobot {
      * @return number of cols
      */
     int cols() const {
-      return internal_value_[0]["length"].template as<int>();
+      return cols_;
     }
   };
 
@@ -703,22 +714,25 @@ class AbstractNativeRobot {
   /**
    * Returns {@link map}.
    */
-  MapBool getPassableMap() const {
-    return MapBool(jsAbstractRobot_.call<emscripten::val>("getPassableMap"));
+  const MapBool &getPassableMap() const {
+    static const MapBool passable_map(jsAbstractRobot_["map"]);
+    return passable_map;
   }
 
   /**
    * Returns {@link karbonite_map}.
    */
-  MapBool getKarboniteMap() const {
-    return MapBool(jsAbstractRobot_.call<emscripten::val>("getKarboniteMap"));
+  const MapBool &getKarboniteMap() const {
+    static const MapBool karbonite_map(jsAbstractRobot_["karbonite_map"]);
+    return karbonite_map;
   }
 
   /**
    * Returns {@link fuel_map}.
    */
-  MapBool getFuelMap() const {
-    return MapBool(jsAbstractRobot_.call<emscripten::val>("getFuelMap"));
+  const MapBool &getFuelMap() const {
+    static const MapBool fuel_map(jsAbstractRobot_["fuel_map"]);
+    return fuel_map;
   }
 
   /**
