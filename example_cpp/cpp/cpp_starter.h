@@ -756,6 +756,7 @@ class AbstractNativeRobot {
      * @return the value
      */
     T get(const int row, const int col) const {
+      // TODO: assert row and col are within bounds
       // TODO: unless me() and turnCount() are cached, this still access the javascript layer
       const TurnType turn = static_cast<const TurnType >(native_robot_->me().turnCount());
       auto &element_cache_turn = cache_turn_[index(row, col)];
