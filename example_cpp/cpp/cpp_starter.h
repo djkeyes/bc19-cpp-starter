@@ -701,14 +701,87 @@ class AbstractNativeRobot {
   };
 
   using MapBool = Map<bool>;
-  using MapChar = Map<char>;
   using MapInt = Map<int>;
+
+  /**
+   * Wrapper class for the visible robot map. Unlike Map, this handles the data in a way that can change on a
+   * turn-to-turn basis. It saves computation by caching old tiles.
+   * @tparam T The type of object stored.
+   */
+  template<typename T>
+  class VisibleRobotMap {
+   private:
+    AbstractNativeRobot const *const native_robot_;
+    emscripten::val native_value_;
+    mutable std::vector<T> data_;
+    mutable std::vector<int16_t> cache_turn_;
+    int rows_;
+    int cols_;
+
+    constexpr auto index(const int row, const int col) const {
+      return row * cols_ + col;
+    }
+
+   public:
+    // Backs the map with the corresponding value
+    explicit VisibleRobotMap(AbstractNativeRobot const *const native_robot, emscripten::val native_value)
+        : native_robot_(native_robot), native_value_(native_value) {
+      const auto value = native_value_["_bc_game_state"]["shadow"];
+      rows_ = value["length"].template as<int>();
+      cols_ = value[0]["length"].template as<int>();
+      data_.resize(static_cast<typename std::vector<T>::size_type >(rows_ * cols_));
+      cache_turn_.resize(static_cast<typename std::vector<T>::size_type >(rows_ * cols_));
+      for (auto &el:cache_turn_) {
+        el = -1;
+      }
+    }
+
+    /**
+     * Get the element store at a particular column. Note that the row corresponds to the y-coordinate, and the
+     * column corresponds to the x-coordinate.
+     *
+     * @param row the row
+     * @param col the col
+     * @return the value
+     */
+    T get(const int row, const int col) const {
+      // TODO: unless me() and turnCount() are cached, this still access the javascript layer
+      const int16_t turn = static_cast<const int16_t>(native_robot_->me().turnCount());
+      auto &element_cache_turn = cache_turn_[index(row, col)];
+      auto &element = data_[index(row, col)];
+      if (element_cache_turn != turn) {
+        // TODO: if the tile is out of visibility range, we can skip the lookup
+        // TODO: _bc_game_state gets reassigned once per turn, so we can cache _bc_game_state.shadow the first time
+        // this function is called every turn
+        data_[index(row, col)] = native_value_["_bc_game_state"]["shadow"][row][col].template as<T>();
+        element_cache_turn = turn;
+      }
+      return element;
+    }
+
+    /**
+     * Gets the number of rows (height) of the map
+     * @return number of rows
+     */
+    int rows() const {
+      return rows_;
+    }
+
+    /**
+     * Gets the number of cols (width) of the map
+     * @return number of cols
+     */
+    int cols() const {
+      return cols_;
+    }
+  };
 
   /**
    * Returns {@link GameState.shadow}.
    */
-  MapInt getVisibleRobotMap() const {
-    return MapInt(jsAbstractRobot_.call<emscripten::val>("getVisibleRobotMap"));
+  VisibleRobotMap<int> getVisibleRobotMap() const {
+    static VisibleRobotMap<int> visible_robot_map(this, this->jsAbstractRobot_);
+    return visible_robot_map;
   }
 
   /**
