@@ -711,12 +711,18 @@ class AbstractNativeRobot {
   template<typename T>
   class VisibleRobotMap {
    private:
+    using TurnType = int16_t;
+
     AbstractNativeRobot const *const native_robot_;
     emscripten::val native_value_;
     mutable std::vector<T> data_;
-    mutable std::vector<int16_t> cache_turn_;
+    mutable std::vector<TurnType> cache_turn_;
     int rows_;
     int cols_;
+
+    // this is reset every turn and must be reloaded
+    mutable emscripten::val shadow_value_;
+    mutable TurnType shadow_cache_turn_;
 
     constexpr auto index(const int row, const int col) const {
       return row * cols_ + col;
@@ -725,15 +731,17 @@ class AbstractNativeRobot {
    public:
     // Backs the map with the corresponding value
     explicit VisibleRobotMap(AbstractNativeRobot const *const native_robot, emscripten::val native_value)
-        : native_robot_(native_robot), native_value_(native_value) {
-      const auto value = native_value_["_bc_game_state"]["shadow"];
-      rows_ = value["length"].template as<int>();
-      cols_ = value[0]["length"].template as<int>();
+        : native_robot_(native_robot),
+        native_value_(native_value),
+        shadow_value_(native_value_["_bc_game_state"]["shadow"]) {
+      rows_ = shadow_value_["length"].template as<int>();
+      cols_ = shadow_value_[0]["length"].template as<int>();
       data_.resize(static_cast<typename std::vector<T>::size_type >(rows_ * cols_));
       cache_turn_.resize(static_cast<typename std::vector<T>::size_type >(rows_ * cols_));
       for (auto &el:cache_turn_) {
-        el = -1;
+        el = static_cast<TurnType>(-1);
       }
+      shadow_cache_turn_ = static_cast<TurnType>(native_robot->me().turnCount());
     }
 
     /**
@@ -746,14 +754,16 @@ class AbstractNativeRobot {
      */
     T get(const int row, const int col) const {
       // TODO: unless me() and turnCount() are cached, this still access the javascript layer
-      const int16_t turn = static_cast<const int16_t>(native_robot_->me().turnCount());
+      const TurnType turn = static_cast<const TurnType >(native_robot_->me().turnCount());
       auto &element_cache_turn = cache_turn_[index(row, col)];
       auto &element = data_[index(row, col)];
+      if (shadow_cache_turn_ != turn) {
+        shadow_value_ = native_value_["_bc_game_state"]["shadow"];
+        shadow_cache_turn_ = turn;
+      }
       if (element_cache_turn != turn) {
         // TODO: if the tile is out of visibility range, we can skip the lookup
-        // TODO: _bc_game_state gets reassigned once per turn, so we can cache _bc_game_state.shadow the first time
-        // this function is called every turn
-        data_[index(row, col)] = native_value_["_bc_game_state"]["shadow"][row][col].template as<T>();
+        data_[index(row, col)] = shadow_value_[row][col].template as<T>();
         element_cache_turn = turn;
       }
       return element;
