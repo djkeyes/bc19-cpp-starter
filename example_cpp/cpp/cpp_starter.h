@@ -679,7 +679,7 @@ class AbstractNativeRobot {
      * @param col the col
      * @return the value
      */
-    T get(int row, int col) const {
+    T get(const int row, const int col) const {
       return data_[index(row, col)];
     }
 
