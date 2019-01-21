@@ -1,4 +1,7 @@
 
+// disable warning about unused declarations
+#pragma clang diagnostic push
+#pragma ide diagnostic ignored "OCUnusedGlobalDeclarationInspection"
 
 #ifndef CPP_STARTER_CPP_STARTER_H
 #define CPP_STARTER_CPP_STARTER_H
@@ -829,3 +832,5 @@ class AbstractNativeRobot {
 };
 }
 #endif //CPP_STARTER_CPP_STARTER_H
+
+#pragma clang diagnostic pop
