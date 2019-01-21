@@ -1,4 +1,3 @@
-
 // disable warning about unused declarations
 #pragma clang diagnostic push
 #pragma ide diagnostic ignored "OCUnusedGlobalDeclarationInspection"
@@ -182,12 +181,12 @@ constexpr std::array<UnitSpecs, 6> units = {{{
     /*FUEL_CAPACITY*/ -1,
     /*SPEED*/ 0,
     /*FUEL_PER_MOVE*/ -1,
-    /*STARTING_HP*/ 100,
+    /*STARTING_HP*/ 200,
     /*VISION_RADIUS*/ 100,
-    /*ATTACK_DAMAGE*/ -1,
-    /*ATTACK_RADIUS*/ {{-1, -1}},
-    /*ATTACK_FUEL_COST*/ -1,
-    /*DAMAGE_SPREAD*/ -1
+    /*ATTACK_DAMAGE*/ 10,
+    /*ATTACK_RADIUS*/ {{1, 64}},
+    /*ATTACK_FUEL_COST*/ 10,
+    /*DAMAGE_SPREAD*/ 0
 }, {
     /*CONSTRUCTION_KARBONITE*/ 50,
     /*CONSTRUCTION_FUEL*/ 200,
@@ -195,7 +194,7 @@ constexpr std::array<UnitSpecs, 6> units = {{{
     /*FUEL_CAPACITY*/ -1,
     /*SPEED*/ 0,
     /*FUEL_PER_MOVE*/ -1,
-    /*STARTING_HP*/ 50,
+    /*STARTING_HP*/ 100,
     /*VISION_RADIUS*/ 100,
     /*ATTACK_DAMAGE*/ -1,
     /*ATTACK_RADIUS*/ {{-1, -1}},
