@@ -10,5 +10,5 @@ using emscripten::val;
 EMSCRIPTEN_BINDINGS(my_robot_example) { // NOLINT
   class_<AbstractNativeRobot>("AbstractNativeRobot").class_function<std::unique_ptr<AbstractNativeRobot> >(
       "createNativeRobotImpl",
-      &AbstractNativeRobot::createNativeRobotImpl).function("turn", &AbstractNativeRobot::turn);
+      &AbstractNativeRobot::createNativeRobotImpl).function("turnHook", &AbstractNativeRobot::turnHook);
 }

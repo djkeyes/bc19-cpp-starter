@@ -6,6 +6,9 @@
 #define CPP_STARTER_CPP_STARTER_H
 
 #include <emscripten/val.h>
+#include <functional>
+#include <optional>
+#include <string>
 
 // TODO: how fast is the js-native boundary layer? is it faster to copy values?
 
@@ -255,154 +258,281 @@ constexpr std::array<UnitSpecs, 6> units = {{{
 }}};
 }
 
-class Robot {
+class AbstractNativeRobot {
  private:
-  // TODO: can this be a reference?
-  emscripten::val jsRobot_;
+  using TurnType = int16_t;
+
+  TurnType turn_count_ = 0;
+
+  /**
+   * A simple lazy loading wrapper which caches values if you've accessed them once.
+   * @tparam T
+   */
+  template<typename T>
+  class Cache {
+   public:
+    // TODO: require callers to supply a default value
+    mutable T value_;
+    mutable bool cached_;
+    std::function<T()> getter_;
+   public:
+    Cache(std::function<T()> getter, T initial_value)
+        : value_(initial_value), cached_(false), getter_(std::move(getter)) {
+    }
+
+    const T &operator*() const {
+      if (!cached_) {
+        value_ = getter_();
+        cached_ = true;
+      }
+      return value_;
+    }
+
+    T &operator*() {
+      return const_cast<T &>(static_cast<const Cache<T> *>(this)->operator*());
+    }
+
+  };
 
  public:
-  explicit Robot(emscripten::val jsRobot) : jsRobot_(jsRobot) {
-  }
 
-  static Robot fromSelfRobot(const emscripten::val &jsAbstractRobot) {
-    return Robot(jsAbstractRobot["me"]);
-  }
+  class Robot {
+   public:
+    emscripten::val jsRobot_;
+    AbstractNativeRobot const *native_robot_;
 
-  auto &jsRobot() {
-    return jsRobot_;
-  }
+    Cache<int> id_;
+    Cache<specs::Unit> unit_;
+    Cache<int> health_;
+    Cache<int> team_;
+    Cache<int> x_;
+    Cache<int> y_;
+    Cache<int> fuel_;
+    Cache<int> karbonite_;
+    Cache<int> signal_;
+    Cache<int> signal_radius_;
+    Cache<uint8_t> castle_talk_;
+    Cache<int> time_;
 
-  /**
-   * The id of the robot, which is an integer between 1 and {@link Specs.MAX_ID}.
-   *
-   * Always available.
-   */
-  int id() const {
-    return jsRobot_["id"].as<int>();
-  }
+    static int idGetter(const emscripten::val &js_robot) {
+      return js_robot["id"].as<int>();
+    }
 
-  /**
-   * The robot's unit type, where {@link Specs.CASTLE} stands for castle,
-   * {@link Specs.CHURCH} stands for church, {@link Specs.PILGRIM} stands for pilgrim,
-   * {@link Specs.CRUSADER} stands for crusader, {@link Specs.PROPHET} stands for prophet
-   * and {@link Specs.PREACHER} stands for preacher.
-   *
-   * Available if visible.
-   */
-  specs::Unit unit() const {
-    auto val = jsRobot_["unit"];
-    return val.isUndefined() ? specs::Unit::UNDEFINED : static_cast<specs::Unit>(val.as<int>());
-  }
+    static specs::Unit unitGetter(const emscripten::val &js_robot) {
+      auto val = js_robot["unit"];
+      return val.isUndefined() ? specs::Unit::UNDEFINED : static_cast<specs::Unit>(val.as<int>());
+    }
 
-  /**
-   * The health of the robot.
-   *
-   * Only available for `r = this.me`.
-   */
-  int health() const {
-    // TODO: assert r = this.me
-    return jsRobot_["health"].as<int>();
-  }
+    static int healthGetter(const emscripten::val &js_robot) {
+      return js_robot["health"].as<int>();
+    }
 
-  /**
-   * The team of the robot, where {@link Specs.RED} stands for RED and {@link Specs.BLUE} stands for BLUE.
-   *
-   * Available if visible.
-   */
-  int team() const {
-    return jsRobot_["team"].as<int>();
-  }
+    static int teamGetter(const emscripten::val &js_robot) {
+      return js_robot["team"].as<int>();
+    }
 
-  /**
-   * The x position of the robot.
-   *
-   * Available if visible.
-   */
-  int x() const {
-    return jsRobot_["x"].as<int>();
-  }
+    static int xGetter(const emscripten::val &js_robot) {
+      return js_robot["x"].as<int>();
+    }
 
-  /**
-   * The y position of the robot.
-   *
-   * Available if visible.
-   */
-  int y() const {
-    return jsRobot_["y"].as<int>();
-  }
+    static int yGetter(const emscripten::val &js_robot) {
+      return js_robot["y"].as<int>();
+    }
 
-  /**
-   * The amount of fuel that the robot carries.
-   *
-   * Only available if {@link BCAbstractRobot.me} equals this robot.
-   */
-  int fuel() const {
-    // TODO: assert r = this.me
-    return jsRobot_["fuel"].as<int>();
-  }
+    static int fuelGetter(const emscripten::val &js_robot) {
+      return js_robot["fuel"].as<int>();
+    }
 
-  /**
-   * The amount of karbonite that the robot carries.
-   *
-   * Only available if {@link BCAbstractRobot.me} equals this robot.
-   */
-  int karbonite() const {
-    // TODO: assert r = this.me
-    return jsRobot_["karbonite"].as<int>();
-  }
+    static int karboniteGetter(const emscripten::val &js_robot) {
+      return js_robot["karbonite"].as<int>();
+    }
 
-  /**
-   * The turn count of the robot (initialized to 0, and incremented just before `turn()`).
-   *
-   * In JS, this is an instance variable named 'turn'.
-   *
-   * Always available.
-   */
-  int turnCount() const {
-    return jsRobot_["turn"].as<int>();
-  }
+    static int signalGetter(const emscripten::val &js_robot) {
+      return js_robot["signal"].as<int>();
+    }
 
-  /**
-   * The signal message of the robot.
-   *
-   * -1 if not radioable.
-   */
-  int signal() const {
-    return jsRobot_["signal"].as<int>();
-  }
+    static int signalRadiusGetter(const emscripten::val &js_robot) {
+      return js_robot["signal_radius"].as<int>();
+    }
 
-  /**
-   * The signal radius of the robot.
-   *
-   * -1 if not radioable.
-   */
-  int signal_radius() const {
-    return jsRobot_["signal_radius"].as<int>();
-  }
+    static uint8_t castleTalkGetter(const emscripten::val &js_robot) {
+      return js_robot["castle_talk"].as<uint8_t>();
+    }
 
-  /**
-   * The castle talk message sent by the robot.
-   *
-   * Available if {@link BCAbstractRobot.me} is a Castle.
-   */
-  uint8_t castle_talk() const {
-    // TODO: assert me.unit == CASTLE
-    return jsRobot_["castle_talk"].as<uint8_t>();
-  }
+    static int timeGetter(const emscripten::val &js_robot) {
+      return js_robot["time"].as<int>();
+    }
 
-  /**
-   * The amount of milliseconds this robot has left in it's chess clock.
-   */
-  int time() const {
-    return jsRobot_["time"].as<int>();
-  }
-};
+   public:
+    Robot(emscripten::val jsRobot, AbstractNativeRobot const *native_robot)
+        : jsRobot_(jsRobot), native_robot_(native_robot), id_([jsRobot]() {
+      return Robot::idGetter(jsRobot);
+    }, -1), unit_([jsRobot]() {
+      return Robot::unitGetter(jsRobot);
+    }, specs::Unit::UNDEFINED), health_([jsRobot]() {
+      return Robot::healthGetter(jsRobot);
+    }, -1), team_([jsRobot]() {
+      return Robot::teamGetter(jsRobot);
+    }, -1), x_([jsRobot]() {
+      return Robot::xGetter(jsRobot);
+    }, -1), y_([jsRobot]() {
+      return Robot::yGetter(jsRobot);
+    }, -1), fuel_([jsRobot]() {
+      return Robot::fuelGetter(jsRobot);
+    }, -1), karbonite_([jsRobot]() {
+      return Robot::karboniteGetter(jsRobot);
+    }, -1), signal_([jsRobot]() {
+      return Robot::signalGetter(jsRobot);
+    }, -1), signal_radius_([jsRobot]() {
+      return Robot::signalRadiusGetter(jsRobot);
+    }, -1), castle_talk_([jsRobot]() {
+      return Robot::castleTalkGetter(jsRobot);
+    }, 0), time_([jsRobot]() {
+      return Robot::timeGetter(jsRobot);
+    }, -1) {
+    }
 
-class AbstractNativeRobot {
+    emscripten::val &jsRobot() {
+      return jsRobot_;
+    }
+
+    const emscripten::val &jsRobot() const {
+      return jsRobot_;
+    }
+
+    /**
+     * The id of the robot, which is an integer between 1 and {@link Specs.MAX_ID}.
+     *
+     * Always available.
+     */
+    int id() const {
+      return *id_;
+    }
+
+    /**
+     * The robot's unit type, where {@link Specs.CASTLE} stands for castle,
+     * {@link Specs.CHURCH} stands for church, {@link Specs.PILGRIM} stands for pilgrim,
+     * {@link Specs.CRUSADER} stands for crusader, {@link Specs.PROPHET} stands for prophet
+     * and {@link Specs.PREACHER} stands for preacher.
+     *
+     * Available if visible.
+     */
+    specs::Unit unit() const {
+      return *unit_;
+    }
+
+    /**
+     * The health of the robot.
+     *
+     * Only available for `r = this.me`.
+     */
+    int health() const {
+      // TODO: assert r = this.me
+      return *health_;
+    }
+
+    /**
+     * The team of the robot, where {@link Specs.RED} stands for RED and {@link Specs.BLUE} stands for BLUE.
+     *
+     * Available if visible.
+     */
+    int team() const {
+      return *team_;
+    }
+
+    /**
+     * The x position of the robot.
+     *
+     * Available if visible.
+     */
+    int x() const {
+      return *x_;
+    }
+
+    /**
+     * The y position of the robot.
+     *
+     * Available if visible.
+     */
+    int y() const {
+      return *y_;
+    }
+
+    /**
+     * The amount of fuel that the robot carries.
+     *
+     * Only available if {@link BCAbstractRobot.me} equals this robot.
+     */
+    int fuel() const {
+      // TODO: assert r = this.me
+      return *fuel_;
+    }
+
+    /**
+     * The amount of karbonite that the robot carries.
+     *
+     * Only available if {@link BCAbstractRobot.me} equals this robot.
+     */
+    int karbonite() const {
+      // TODO: assert r = this.me
+      return *karbonite_;
+    }
+
+    /**
+     * The turn count of the robot (initialized to 0, and incremented just before `turn()`).
+     *
+     * In JS, this is an instance variable named 'turn'.
+     *
+     * Always available.
+     */
+    int turnCount() const {
+      return native_robot_->turn_count_;
+    }
+
+    /**
+     * The signal message of the robot.
+     *
+     * -1 if not radioable.
+     */
+    int signal() const {
+      return *signal_;
+    }
+
+    /**
+     * The signal radius of the robot.
+     *
+     * -1 if not radioable.
+     */
+    int signal_radius() const {
+      return *signal_radius_;
+    }
+
+    /**
+     * The castle talk message sent by the robot.
+     *
+     * Available if {@link BCAbstractRobot.me} is a Castle.
+     */
+    uint8_t castle_talk() const {
+      // TODO: assert me.unit == CASTLE
+      return *castle_talk_;
+    }
+
+    /**
+     * The amount of milliseconds this robot has left in its chess clock.
+     */
+    int time() const {
+      return *time_;
+    }
+  };
+
+ private:
+  Robot me_;
+
  protected:
   emscripten::val jsAbstractRobot_;
 
-  explicit AbstractNativeRobot(emscripten::val jsAbstractRobot) : jsAbstractRobot_(jsAbstractRobot) {
+  explicit AbstractNativeRobot(emscripten::val jsAbstractRobot) : me_(jsAbstractRobot["me"], this),
+      jsAbstractRobot_(jsAbstractRobot) {
   }
 
  public:
@@ -425,18 +555,34 @@ class AbstractNativeRobot {
   static std::unique_ptr<AbstractNativeRobot> createNativeRobotImpl(emscripten::val jsAbstractRobot);
 
   /**
+   * Called from the JS side. This is not virtual; users should implement the function turn().
+   *
+   * @return A valid javascript action object.
+   */
+  emscripten::val turnHook() {
+    ++turn_count_;
+    me_ = Robot(jsAbstractRobot_["me"], this);
+
+    return turn();
+  }
+
+  /**
    * This is called once every turn.
    *
    * @return A valid javascript action object.
    */
   virtual emscripten::val turn() = 0;
 
+ public:
+  Robot createFromJsValue(emscripten::val jsRobot) const {
+    return Robot(jsRobot, this);
+  }
+
   /**
    * The robot object of the playing robot.
    */
-  Robot me() const {
-    // TODO: for some frequently used methods, it's probably better to cache
-    return Robot::fromSelfRobot(jsAbstractRobot_);
+  const Robot &me() const {
+    return me_;
   }
 
   /**
@@ -622,7 +768,7 @@ class AbstractNativeRobot {
    * @param id - The id of the robot to retrieve
    */
   Robot getRobot(int id) {
-    return Robot(jsAbstractRobot_.call<emscripten::val>("getRobot", id));
+    return Robot(jsAbstractRobot_.call<emscripten::val>("getRobot", id), this);
   }
 
   /**
@@ -713,7 +859,6 @@ class AbstractNativeRobot {
   template<typename T>
   class VisibleRobotMap {
    private:
-    using TurnType = int16_t;
 
     AbstractNativeRobot const *const native_robot_;
     emscripten::val native_value_;
@@ -756,7 +901,6 @@ class AbstractNativeRobot {
      */
     T get(const int row, const int col) const {
       // TODO: assert row and col are within bounds
-      // TODO: unless me() and turnCount() are cached, this still access the javascript layer
       const TurnType turn = static_cast<const TurnType >(native_robot_->me().turnCount());
       auto &element_cache_turn = cache_turn_[index(row, col)];
       auto &element = data_[index(row, col)];
@@ -830,6 +974,8 @@ class AbstractNativeRobot {
   }
 
 };
+
+using Robot = AbstractNativeRobot::Robot;
 }
 #endif //CPP_STARTER_CPP_STARTER_H
 
