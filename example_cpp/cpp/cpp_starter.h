@@ -767,7 +767,7 @@ class AbstractNativeRobot {
    *
    * @param id - The id of the robot to retrieve
    */
-  Robot getRobot(int id) {
+  Robot getRobot(int id) const {
     return Robot(jsAbstractRobot_.call<emscripten::val>("getRobot", id), this);
   }
 
